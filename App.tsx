@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { Task, Priority, FilterType, ViewType } from './types';
 import { enhanceTaskWithAI } from './services/geminiService';
@@ -151,14 +152,15 @@ const App: React.FC = () => {
     }));
   };
 
-  const updateTask = (id: string, newTitle: string, newDate?: number, newPriority?: Priority) => {
+  const updateTask = (id: string, newTitle: string, newDate?: number, newPriority?: Priority, newCategory?: string) => {
     setTasks(prev => prev.map(t => {
       if (t.id === id) {
         return { 
           ...t, 
           title: newTitle,
           dueDate: newDate !== undefined ? newDate : t.dueDate,
-          priority: newPriority !== undefined ? newPriority : t.priority
+          priority: newPriority !== undefined ? newPriority : t.priority,
+          category: newCategory !== undefined ? newCategory : t.category
         };
       }
       return t;

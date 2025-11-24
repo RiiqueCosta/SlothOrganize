@@ -1,13 +1,14 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Task, Priority } from '../types';
-import { Trash2, ChevronDown, ChevronUp, CheckCircle, Circle, Sparkles, Folder, Pencil, Check, X, Plus, CalendarClock, Moon, Flag } from 'lucide-react';
+import { Trash2, ChevronDown, ChevronUp, CheckCircle, Circle, Sparkles, Folder, Pencil, Check, X, Plus, CalendarClock, Moon, Flag, Tag } from 'lucide-react';
 import { Button } from './Button';
 
 interface TaskItemProps {
   task: Task;
   onToggle: (id: string) => void;
   onDelete: (id: string) => void;
-  onUpdate: (id: string, newTitle: string, newDate?: number, newPriority?: Priority) => void;
+  onUpdate: (id: string, newTitle: string, newDate?: number, newPriority?: Priority, newCategory?: string) => void;
   onToggleSubtask: (taskId: string, subtaskId: string) => void;
   onAddSubtask: (taskId: string, title: string) => void;
   onDeleteSubtask: (taskId: string, subtaskId: string) => void;
@@ -32,6 +33,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(task.title);
   const [editPriority, setEditPriority] = useState<Priority>(task.priority);
+  const [editCategory, setEditCategory] = useState(task.category || '');
   
   // Format existing date to YYYY-MM-DD for input
   const initialDateStr = task.dueDate 
@@ -76,7 +78,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
         12, 0, 0
       ).getTime();
 
-      onUpdate(task.id, editTitle.trim(), newTimestamp, editPriority);
+      onUpdate(task.id, editTitle.trim(), newTimestamp, editPriority, editCategory.trim());
       setIsEditing(false);
     }
   };
@@ -85,6 +87,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
     setEditTitle(task.title);
     setEditDate(initialDateStr);
     setEditPriority(task.priority);
+    setEditCategory(task.category || '');
     setIsEditing(false);
   };
 
@@ -147,7 +150,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
                 className="w-full px-2 py-1 text-sm border border-primary-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500"
                 placeholder="Nome da tarefa"
               />
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                  <input 
                     type="date"
                     value={editDate}
@@ -163,6 +166,17 @@ export const TaskItem: React.FC<TaskItemProps> = ({
                  >
                     <Flag size={16} className={priorityFlagColors[editPriority]} />
                  </button>
+
+                 <div className="flex items-center relative flex-1 min-w-[100px]">
+                    <Tag size={14} className="absolute left-2 text-slate-400" />
+                    <input 
+                        type="text"
+                        value={editCategory}
+                        onChange={(e) => setEditCategory(e.target.value)}
+                        placeholder="Categoria"
+                        className="w-full pl-7 pr-2 py-1 text-xs border border-slate-300 rounded text-slate-600 focus:border-primary-500 outline-none"
+                    />
+                 </div>
 
                  <div className="flex gap-1 ml-auto">
                     <button onClick={handleSaveEdit} className="text-white bg-primary-600 hover:bg-primary-700 px-3 py-1 rounded text-xs flex items-center">
