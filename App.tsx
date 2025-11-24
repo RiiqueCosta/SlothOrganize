@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { Task, Priority, FilterType, ViewType } from './types';
 import { enhanceTaskWithAI } from './services/geminiService';
@@ -54,6 +53,11 @@ const App: React.FC = () => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+
+  // Set Document Title
+  useEffect(() => {
+    document.title = "SlothOrganize";
+  }, []);
 
   // Load from local storage
   useEffect(() => {

@@ -29,9 +29,10 @@ const SlothIcon = ({ size = 24, className = "" }: { size?: number, className?: s
 
 interface CalendarViewProps {
   tasks: Task[];
+  onAddTask?: (title: string, date: Date) => void;
 }
 
-export const CalendarView: React.FC<CalendarViewProps> = ({ tasks }) => {
+export const CalendarView: React.FC<CalendarViewProps> = ({ tasks, onAddTask }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState<Date>(new Date());
 
