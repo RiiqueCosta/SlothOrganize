@@ -1,8 +1,8 @@
+
 import { GoogleGenAI, Type, Schema } from "@google/genai";
 import { AIEnhancementResponse } from '../types';
 
-const apiKey = process.env.API_KEY || '';
-const ai = new GoogleGenAI({ apiKey });
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 // Schema for the structured response we want from Gemini
 const taskEnhancementSchema: Schema = {
@@ -33,11 +33,6 @@ const taskEnhancementSchema: Schema = {
 };
 
 export const enhanceTaskWithAI = async (taskTitle: string): Promise<AIEnhancementResponse | null> => {
-  if (!apiKey) {
-    console.error("API Key is missing");
-    return null;
-  }
-
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',

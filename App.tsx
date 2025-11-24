@@ -8,7 +8,7 @@ import { CalendarView } from './components/CalendarView';
 import { FocusTimer } from './components/FocusTimer';
 import { SettingsModal } from './components/SettingsModal';
 import { Button } from './components/Button';
-import { Plus, ListFilter, Calendar, LayoutList, History, Timer, CalendarClock, Settings } from 'lucide-react';
+import { Plus, ListFilter, Calendar, LayoutList, History, Timer, CalendarClock, Settings, X, Flag } from 'lucide-react';
 
 // Custom Sloth Icon Component
 const SlothIcon = ({ size = 24, className = "" }: { size?: number, className?: string }) => (
@@ -43,6 +43,8 @@ const SlothIcon = ({ size = 24, className = "" }: { size?: number, className?: s
 const App: React.FC = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [newTaskTitle, setNewTaskTitle] = useState('');
+  const [newTaskDate, setNewTaskDate] = useState(''); // New state for date picker
+  const [newTaskPriority, setNewTaskPriority] = useState<Priority>(Priority.Medium);
   const [filter, setFilter] = useState<FilterType>('active');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [loadingAI, setLoadingAI] = useState<string | null>(null);
@@ -96,13 +98,29 @@ const App: React.FC = () => {
     const titleToUse = titleOverride || newTaskTitle;
     if (!titleToUse.trim()) return;
 
+    // Determine due date
+    let finalDueDate = Date.now();
+    
+    if (customDate) {
+      finalDueDate = customDate.getTime();
+    } else if (newTaskDate) {
+       // Parse input date string (YYYY-MM-DD) to local timestamp noon
+       const dateParts = newTaskDate.split('-');
+       finalDueDate = new Date(
+        parseInt(dateParts[0]), 
+        parseInt(dateParts[1]) - 1, 
+        parseInt(dateParts[2]), 
+        12, 0, 0
+      ).getTime();
+    }
+
     const newTask: Task = {
       id: crypto.randomUUID(),
       title: titleToUse.trim(),
-      priority: Priority.Medium, // Default
+      priority: newTaskPriority, 
       completed: false,
       createdAt: Date.now(),
-      dueDate: customDate ? customDate.getTime() : Date.now(),
+      dueDate: finalDueDate,
       subtasks: []
     };
 
@@ -110,6 +128,8 @@ const App: React.FC = () => {
     
     if (!titleOverride) {
       setNewTaskTitle('');
+      setNewTaskDate(''); // Reset date picker
+      setNewTaskPriority(Priority.Medium); // Reset priority
     }
   };
 
@@ -127,13 +147,14 @@ const App: React.FC = () => {
     }));
   };
 
-  const updateTask = (id: string, newTitle: string, newDate?: number) => {
+  const updateTask = (id: string, newTitle: string, newDate?: number, newPriority?: Priority) => {
     setTasks(prev => prev.map(t => {
       if (t.id === id) {
         return { 
           ...t, 
           title: newTitle,
-          dueDate: newDate !== undefined ? newDate : t.dueDate
+          dueDate: newDate !== undefined ? newDate : t.dueDate,
+          priority: newPriority !== undefined ? newPriority : t.priority
         };
       }
       return t;
@@ -246,6 +267,18 @@ const App: React.FC = () => {
     setTasks([]);
   };
 
+  const cycleNewTaskPriority = () => {
+    if (newTaskPriority === Priority.Low) setNewTaskPriority(Priority.Medium);
+    else if (newTaskPriority === Priority.Medium) setNewTaskPriority(Priority.High);
+    else setNewTaskPriority(Priority.Low);
+  };
+
+  const priorityFlagColors = {
+    [Priority.High]: 'text-red-500 fill-red-500',
+    [Priority.Medium]: 'text-amber-500 fill-amber-500',
+    [Priority.Low]: 'text-blue-500 fill-blue-500',
+  };
+
   const filteredTasks = tasks.filter(task => {
     if (activeView === 'tasks') {
         const todayEnd = new Date().setHours(23, 59, 59, 999);
@@ -278,6 +311,37 @@ const App: React.FC = () => {
       }
       return a.completed ? 1 : -1;
   });
+
+  // Grouped tasks logic for scheduled view
+  const groupedScheduledTasks = useMemo<{ [key: string]: Task[] } | null>(() => {
+    if (filter !== 'scheduled') return null;
+    
+    const groups: { [key: string]: Task[] } = {};
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    sortedTasks.forEach(task => {
+        if (!task.dueDate) return;
+        const date = new Date(task.dueDate);
+        date.setHours(0,0,0,0);
+        
+        let key = '';
+        if (date.getTime() === tomorrow.getTime()) {
+            key = 'Amanhã';
+        } else {
+             // Create a nice label like "Sexta-feira, 24/10"
+             key = date.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'numeric' });
+             key = key.charAt(0).toUpperCase() + key.slice(1);
+        }
+
+        if (!groups[key]) groups[key] = [];
+        groups[key].push(task);
+    });
+    return groups;
+  }, [sortedTasks, filter]);
+
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 font-sans pb-24 md:pb-10">
@@ -316,16 +380,67 @@ const App: React.FC = () => {
             {/* Stats */}
             <StatsCard tasks={tasks} />
 
-            {/* Input Area */}
-            <div className="bg-white p-2 rounded-2xl shadow-lg shadow-primary-500/5 border border-primary-100">
-              <form onSubmit={addTask} className="flex gap-2">
+            {/* Input Area with Date Picker */}
+            <div className="bg-white p-2 rounded-2xl shadow-lg shadow-primary-500/5 border border-primary-100 relative">
+              <form onSubmit={addTask} className="flex gap-2 relative">
                 <input
                   type="text"
                   value={newTaskTitle}
                   onChange={(e) => setNewTaskTitle(e.target.value)}
                   placeholder="O que vamos fazer (ou não) hoje?"
-                  className="flex-1 px-4 py-3 bg-transparent text-slate-800 placeholder:text-slate-400 outline-none text-base"
+                  className="flex-1 pl-4 pr-2 py-3 bg-transparent text-slate-800 placeholder:text-slate-400 outline-none text-base"
                 />
+                
+                {/* Date & Priority Controls */}
+                <div className="relative flex items-center gap-1">
+                    {/* Priority Toggle */}
+                    <button
+                        type="button"
+                        onClick={cycleNewTaskPriority}
+                        className="p-2 rounded-lg hover:bg-slate-100 transition-colors"
+                        title={`Prioridade: ${newTaskPriority}`}
+                    >
+                        <Flag size={20} className={priorityFlagColors[newTaskPriority]} />
+                    </button>
+
+                    {/* Date Picker Button */}
+                    <div className="relative">
+                        <button
+                            type="button"
+                            className={`p-2 rounded-lg transition-colors flex items-center gap-1 ${
+                                newTaskDate ? 'bg-indigo-50 text-indigo-600' : 'text-slate-400 hover:bg-slate-100 hover:text-primary-600'
+                            }`}
+                            onClick={() => {
+                                const dateInput = document.getElementById('main-date-input');
+                                if(dateInput) (dateInput as HTMLInputElement).showPicker();
+                            }}
+                        >
+                            <CalendarClock size={20} />
+                            {newTaskDate && (
+                                <span className="text-xs font-semibold whitespace-nowrap hidden sm:inline">
+                                    {new Date(newTaskDate).toLocaleDateString('pt-BR', {day: '2-digit', month: '2-digit'})}
+                                </span>
+                            )}
+                        </button>
+                        {newTaskDate && (
+                            <button 
+                                type="button"
+                                onClick={() => setNewTaskDate('')}
+                                className="absolute -top-2 -right-2 bg-slate-200 text-slate-500 rounded-full p-0.5 hover:bg-red-100 hover:text-red-500"
+                            >
+                                <X size={12} />
+                            </button>
+                        )}
+                        <input 
+                            id="main-date-input"
+                            type="date"
+                            value={newTaskDate}
+                            onChange={(e) => setNewTaskDate(e.target.value)}
+                            className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                        />
+                    </div>
+                </div>
+
                 <Button 
                   type="submit" 
                   className="rounded-xl px-4 md:px-6"
@@ -415,21 +530,49 @@ const App: React.FC = () => {
                     </p>
                 </div>
               ) : (
-                sortedTasks.map(task => (
-                  <TaskItem
-                    key={task.id}
-                    task={task}
-                    onToggle={toggleTask}
-                    onDelete={deleteTask}
-                    onUpdate={updateTask}
-                    onToggleSubtask={toggleSubtask}
-                    onAddSubtask={addSubtask}
-                    onDeleteSubtask={deleteSubtask}
-                    onEnhance={handleEnhanceTask}
-                    onSnooze={snoozeTask}
-                    isEnhancing={loadingAI === task.id}
-                  />
-                ))
+                <>
+                    {/* Render Grouped Tasks for Scheduled Filter */}
+                    {filter === 'scheduled' && groupedScheduledTasks ? (
+                        Object.entries(groupedScheduledTasks).map(([dateLabel, tasks]) => (
+                            <div key={dateLabel} className="space-y-2">
+                                <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider pl-1 mt-4 mb-2 sticky top-[72px] bg-slate-50/95 py-2 z-10 backdrop-blur-sm">
+                                    {dateLabel}
+                                </h3>
+                                {(tasks as Task[]).map(task => (
+                                    <TaskItem
+                                        key={task.id}
+                                        task={task}
+                                        onToggle={toggleTask}
+                                        onDelete={deleteTask}
+                                        onUpdate={updateTask}
+                                        onToggleSubtask={toggleSubtask}
+                                        onAddSubtask={addSubtask}
+                                        onDeleteSubtask={deleteSubtask}
+                                        onEnhance={handleEnhanceTask}
+                                        onSnooze={snoozeTask}
+                                        isEnhancing={loadingAI === task.id}
+                                    />
+                                ))}
+                            </div>
+                        ))
+                    ) : (
+                        sortedTasks.map(task => (
+                        <TaskItem
+                            key={task.id}
+                            task={task}
+                            onToggle={toggleTask}
+                            onDelete={deleteTask}
+                            onUpdate={updateTask}
+                            onToggleSubtask={toggleSubtask}
+                            onAddSubtask={addSubtask}
+                            onDeleteSubtask={deleteSubtask}
+                            onEnhance={handleEnhanceTask}
+                            onSnooze={snoozeTask}
+                            isEnhancing={loadingAI === task.id}
+                        />
+                        ))
+                    )}
+                </>
               )}
             </div>
           </div>

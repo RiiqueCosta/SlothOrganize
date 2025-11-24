@@ -1,18 +1,19 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Task, Priority } from '../types';
-import { Trash2, ChevronDown, ChevronUp, CheckCircle, Circle, Sparkles, Folder, Pencil, Check, X, Plus } from 'lucide-react';
+import { Trash2, ChevronDown, ChevronUp, CheckCircle, Circle, Sparkles, Folder, Pencil, Check, X, Plus, CalendarClock, Moon, Flag } from 'lucide-react';
 import { Button } from './Button';
 
 interface TaskItemProps {
   task: Task;
   onToggle: (id: string) => void;
   onDelete: (id: string) => void;
-  onUpdate: (id: string, newTitle: string) => void;
+  onUpdate: (id: string, newTitle: string, newDate?: number, newPriority?: Priority) => void;
   onToggleSubtask: (taskId: string, subtaskId: string) => void;
   onAddSubtask: (taskId: string, title: string) => void;
   onDeleteSubtask: (taskId: string, subtaskId: string) => void;
   onEnhance: (task: Task) => void;
+  onSnooze: (id: string) => void;
   isEnhancing: boolean;
 }
 
@@ -25,11 +26,20 @@ export const TaskItem: React.FC<TaskItemProps> = ({
   onAddSubtask,
   onDeleteSubtask,
   onEnhance,
+  onSnooze,
   isEnhancing
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(task.title);
+  const [editPriority, setEditPriority] = useState<Priority>(task.priority);
+  
+  // Format existing date to YYYY-MM-DD for input
+  const initialDateStr = task.dueDate 
+    ? new Date(task.dueDate).toISOString().split('T')[0] 
+    : new Date().toISOString().split('T')[0];
+    
+  const [editDate, setEditDate] = useState(initialDateStr);
   const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -45,6 +55,12 @@ export const TaskItem: React.FC<TaskItemProps> = ({
     [Priority.Low]: 'bg-blue-100 text-blue-700',
   };
 
+  const priorityFlagColors = {
+    [Priority.High]: 'text-red-500 fill-red-500',
+    [Priority.Medium]: 'text-amber-500 fill-amber-500',
+    [Priority.Low]: 'text-blue-500 fill-blue-500',
+  };
+
   const handleEnhanceClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     onEnhance(task);
@@ -52,19 +68,36 @@ export const TaskItem: React.FC<TaskItemProps> = ({
 
   const handleSaveEdit = () => {
     if (editTitle.trim()) {
-      onUpdate(task.id, editTitle.trim());
+      // Create timestamp from the date input strings
+      const dateParts = editDate.split('-');
+      const newTimestamp = new Date(
+        parseInt(dateParts[0]), 
+        parseInt(dateParts[1]) - 1, 
+        parseInt(dateParts[2]), 
+        12, 0, 0
+      ).getTime();
+
+      onUpdate(task.id, editTitle.trim(), newTimestamp, editPriority);
       setIsEditing(false);
     }
   };
 
   const handleCancelEdit = () => {
     setEditTitle(task.title);
+    setEditDate(initialDateStr);
+    setEditPriority(task.priority);
     setIsEditing(false);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') handleSaveEdit();
     if (e.key === 'Escape') handleCancelEdit();
+  };
+
+  const cyclePriority = () => {
+    if (editPriority === Priority.Low) setEditPriority(Priority.Medium);
+    else if (editPriority === Priority.Medium) setEditPriority(Priority.High);
+    else setEditPriority(Priority.Low);
   };
 
   const handleAddSubtask = (e: React.FormEvent) => {
@@ -74,6 +107,10 @@ export const TaskItem: React.FC<TaskItemProps> = ({
       setNewSubtaskTitle('');
     }
   };
+
+  // Check if date is in the future
+  const isFuture = task.dueDate && task.dueDate > new Date().setHours(23, 59, 59, 999);
+  const isToday = task.dueDate && new Date(task.dueDate).toDateString() === new Date().toDateString();
 
   return (
     <div 
@@ -101,41 +138,72 @@ export const TaskItem: React.FC<TaskItemProps> = ({
         {/* Content */}
         <div className="flex-1 min-w-0">
           {isEditing ? (
-            <div className="flex items-center gap-2 mb-1" onClick={e => e.stopPropagation()}>
+            <div className="flex flex-col gap-2 mb-1" onClick={e => e.stopPropagation()}>
               <input
                 ref={inputRef}
                 type="text"
                 value={editTitle}
                 onChange={(e) => setEditTitle(e.target.value)}
                 onKeyDown={handleKeyDown}
-                className="flex-1 px-2 py-1 text-sm border border-primary-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500"
+                className="w-full px-2 py-1 text-sm border border-primary-300 rounded focus:outline-none focus:ring-2 focus:ring-primary-500"
+                placeholder="Nome da tarefa"
               />
-              <button onClick={handleSaveEdit} className="text-primary-600 hover:bg-primary-50 p-1 rounded">
-                <Check size={16} />
-              </button>
-              <button onClick={handleCancelEdit} className="text-red-500 hover:bg-red-50 p-1 rounded">
-                <X size={16} />
-              </button>
+              <div className="flex items-center gap-2">
+                 <input 
+                    type="date"
+                    value={editDate}
+                    onChange={(e) => setEditDate(e.target.value)}
+                    className="px-2 py-1 text-xs border border-slate-300 rounded text-slate-600 focus:border-primary-500 outline-none"
+                 />
+                 
+                 <button 
+                    onClick={cyclePriority}
+                    type="button"
+                    className="p-1.5 rounded hover:bg-slate-100 transition-colors border border-transparent hover:border-slate-200"
+                    title={`Prioridade: ${editPriority}`}
+                 >
+                    <Flag size={16} className={priorityFlagColors[editPriority]} />
+                 </button>
+
+                 <div className="flex gap-1 ml-auto">
+                    <button onClick={handleSaveEdit} className="text-white bg-primary-600 hover:bg-primary-700 px-3 py-1 rounded text-xs flex items-center">
+                        <Check size={14} className="mr-1"/> Salvar
+                    </button>
+                    <button onClick={handleCancelEdit} className="text-slate-600 bg-slate-100 hover:bg-slate-200 px-3 py-1 rounded text-xs">
+                        <X size={14} />
+                    </button>
+                 </div>
+              </div>
             </div>
           ) : (
-            <div className="flex items-center gap-2 mb-1 flex-wrap">
-              <h3 className={`font-medium text-slate-800 break-words ${task.completed ? 'line-through text-slate-400' : ''}`}>
-                {task.title}
-              </h3>
-              <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${priorityColors[task.priority]}`}>
-                {task.priority}
-              </span>
-               {task.category && (
-                  <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600">
-                      <Folder size={10} />
-                      {task.category}
-                  </span>
-              )}
+            <div className="flex flex-col gap-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className={`font-medium text-slate-800 break-words ${task.completed ? 'line-through text-slate-400' : ''}`}>
+                        {task.title}
+                    </h3>
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${priorityColors[task.priority]}`}>
+                        {task.priority}
+                    </span>
+                    {task.category && (
+                        <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-100 text-slate-600">
+                            <Folder size={10} />
+                            {task.category}
+                        </span>
+                    )}
+                </div>
+                
+                {/* Date Display Badge */}
+                {task.dueDate && !task.completed && (
+                    <div className={`flex items-center gap-1 text-[10px] font-medium w-fit px-1.5 py-0.5 rounded ${isFuture ? 'bg-indigo-50 text-indigo-600' : (isToday ? 'bg-amber-50 text-amber-600' : 'text-slate-400')}`}>
+                        <CalendarClock size={12} />
+                        {isToday ? 'Hoje' : new Date(task.dueDate).toLocaleDateString('pt-BR')}
+                    </div>
+                )}
             </div>
           )}
           
           {task.description && !isEditing && (
-            <p className={`text-sm text-slate-500 line-clamp-2 ${task.completed ? 'text-slate-300' : ''}`}>
+            <p className={`text-sm text-slate-500 line-clamp-2 mt-1 ${task.completed ? 'text-slate-300' : ''}`}>
               {task.description}
             </p>
           )}
@@ -159,6 +227,16 @@ export const TaskItem: React.FC<TaskItemProps> = ({
         {/* Actions */}
         {!isEditing && (
           <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            {!task.completed && (
+               <Button
+                variant="ghost"
+                onClick={(e) => { e.stopPropagation(); onSnooze(task.id); }}
+                className="text-slate-400 hover:text-indigo-600 hover:bg-indigo-50"
+                title="Deixar para amanhã"
+              >
+                <Moon size={16} />
+              </Button>
+            )}
             {!task.completed && (
               <Button
                 variant="ghost"
@@ -272,7 +350,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
           <div className="mt-4 pt-4 border-t border-slate-100 flex justify-between items-center text-xs text-slate-400">
             <span>Criado em {new Date(task.createdAt).toLocaleDateString()}</span>
             {task.dueDate && (
-               <span>Agendado: {new Date(task.dueDate).toLocaleDateString()}</span>
+               <span>Agendado: <strong>{new Date(task.dueDate).toLocaleDateString()}</strong></span>
             )}
           </div>
         </div>
