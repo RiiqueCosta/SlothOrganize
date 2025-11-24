@@ -1,6 +1,5 @@
 import React from 'react';
 import { Task } from '../types';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 
 interface StatsCardProps {
   tasks: Task[];
@@ -12,13 +11,10 @@ export const StatsCard: React.FC<StatsCardProps> = ({ tasks }) => {
   const total = tasks.length;
   const percentage = total === 0 ? 0 : Math.round((completed / total) * 100);
 
-  const data = [
-    { name: 'Concluídas', value: completed },
-    { name: 'Pendentes', value: active },
-  ];
-
-  // Updated to match the new Emerald primary color #10b981
-  const COLORS = ['#10b981', '#e2e8f0']; 
+  // SVG Circle calculations
+  const radius = 35;
+  const circumference = 2 * Math.PI * radius;
+  const strokeDashoffset = circumference - (percentage / 100) * circumference;
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 flex flex-col md:flex-row items-center justify-between">
@@ -38,30 +34,36 @@ export const StatsCard: React.FC<StatsCardProps> = ({ tasks }) => {
         </div>
       </div>
 
-      <div className="h-24 w-24 relative">
-         <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie
-                data={data}
-                cx="50%"
-                cy="50%"
-                innerRadius={30}
-                outerRadius={40}
-                fill="#8884d8"
-                paddingAngle={5}
-                dataKey="value"
-                stroke="none"
-              >
-                {data.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                ))}
-              </Pie>
-              <Tooltip cursor={false} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
-            </PieChart>
-         </ResponsiveContainer>
-         {/* Center text for the chart */}
+      <div className="h-24 w-24 relative flex items-center justify-center">
+         {/* Custom SVG Pie Chart */}
+         <svg width="100%" height="100%" viewBox="0 0 100 100" className="transform -rotate-90">
+            {/* Background Circle */}
+            <circle
+              cx="50"
+              cy="50"
+              r={radius}
+              fill="transparent"
+              stroke="#e2e8f0"
+              strokeWidth="10"
+            />
+            {/* Progress Circle */}
+            <circle
+              cx="50"
+              cy="50"
+              r={radius}
+              fill="transparent"
+              stroke="#10b981"
+              strokeWidth="10"
+              strokeDasharray={circumference}
+              strokeDashoffset={strokeDashoffset}
+              strokeLinecap="round"
+              className="transition-all duration-1000 ease-out"
+            />
+         </svg>
+         
+         {/* Center text */}
          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <span className="text-xs font-bold text-slate-400">{percentage}%</span>
+            <span className="text-sm font-bold text-slate-400">{percentage}%</span>
          </div>
       </div>
     </div>
