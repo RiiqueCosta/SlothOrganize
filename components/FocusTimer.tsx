@@ -42,32 +42,98 @@ const SlothFocus = ({ size = 120, isSleeping = false }: { size?: number, isSleep
   </svg>
 );
 
-export const FocusTimer: React.FC = () => {
+interface FocusTimerProps {
+  soundEnabled?: boolean;
+  notificationsEnabled?: boolean;
+}
+
+export const FocusTimer: React.FC<FocusTimerProps> = ({ 
+  soundEnabled = true, 
+  notificationsEnabled = false 
+}) => {
   const [mode, setMode] = useState<'focus' | 'break'>('focus');
   const [timeLeft, setTimeLeft] = useState(25 * 60);
   const [isActive, setIsActive] = useState(false);
   const intervalRef = useRef<number | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
 
   const FOCUS_TIME = 25 * 60;
   const BREAK_TIME = 5 * 60;
+
+  // Sound generator (Soft chime)
+  const playSound = () => {
+    if (!soundEnabled) return;
+
+    try {
+      if (!audioContextRef.current) {
+        audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+      }
+      const ctx = audioContextRef.current;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      // Gentle sine wave
+      osc.type = 'sine';
+      // Frequency sweep for a "ding" sound
+      osc.frequency.setValueAtTime(500, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(1000, ctx.currentTime + 0.1);
+      
+      // Envelope
+      gain.gain.setValueAtTime(0, ctx.currentTime);
+      gain.gain.linearRampToValueAtTime(0.3, ctx.currentTime + 0.05);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 1.5);
+
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 1.5);
+    } catch (e) {
+      console.error("Audio playback failed", e);
+    }
+  };
+
+  const sendNotification = (title: string, body: string) => {
+    if (!notificationsEnabled) return;
+    
+    if (Notification.permission === 'granted') {
+      new Notification(title, { body, icon: '/favicon.ico' }); // Browser default icon usually works
+    }
+  };
 
   useEffect(() => {
     if (isActive && timeLeft > 0) {
       intervalRef.current = window.setInterval(() => {
         setTimeLeft((prev) => prev - 1);
       }, 1000);
-    } else if (timeLeft === 0) {
+    } else if (timeLeft === 0 && isActive) {
       setIsActive(false);
-      // Play sound notification here if needed
+      playSound();
+      if (mode === 'focus') {
+        sendNotification("Foco concluído!", "Hora de fazer uma pausa e esticar o corpo.");
+        setMode('break');
+        setTimeLeft(BREAK_TIME);
+      } else {
+        sendNotification("Pausa concluída!", "Hora de voltar ao ritmo, sem pressa.");
+        setMode('focus');
+        setTimeLeft(FOCUS_TIME);
+      }
+      
       if (intervalRef.current) clearInterval(intervalRef.current);
     }
 
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [isActive, timeLeft]);
+  }, [isActive, timeLeft, mode, soundEnabled, notificationsEnabled]);
 
-  const toggleTimer = () => setIsActive(!isActive);
+  const toggleTimer = () => {
+    // Initialize audio context on user interaction if needed
+    if (!audioContextRef.current && soundEnabled) {
+       audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+    }
+    setIsActive(!isActive);
+  };
 
   const resetTimer = () => {
     setIsActive(false);

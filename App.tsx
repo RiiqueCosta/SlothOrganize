@@ -1,13 +1,14 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Task, Priority, FilterType, ViewType } from './types';
 import { enhanceTaskWithAI } from './services/geminiService';
 import { TaskItem } from './components/TaskItem';
 import { StatsCard } from './components/StatsCard';
 import { CalendarView } from './components/CalendarView';
 import { FocusTimer } from './components/FocusTimer';
+import { SettingsModal } from './components/SettingsModal';
 import { Button } from './components/Button';
-import { Plus, ListFilter, Calendar, LayoutList, History, Timer } from 'lucide-react';
+import { Plus, ListFilter, Calendar, LayoutList, History, Timer, CalendarClock, Settings } from 'lucide-react';
 
 // Custom Sloth Icon Component
 const SlothIcon = ({ size = 24, className = "" }: { size?: number, className?: string }) => (
@@ -42,9 +43,15 @@ const SlothIcon = ({ size = 24, className = "" }: { size?: number, className?: s
 const App: React.FC = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [newTaskTitle, setNewTaskTitle] = useState('');
-  const [filter, setFilter] = useState<FilterType>('all');
+  const [filter, setFilter] = useState<FilterType>('active');
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [loadingAI, setLoadingAI] = useState<string | null>(null);
   const [activeView, setActiveView] = useState<ViewType>('tasks');
+  
+  // Settings State
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [soundEnabled, setSoundEnabled] = useState(true);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
 
   // Load from local storage
   useEffect(() => {
@@ -56,11 +63,31 @@ const App: React.FC = () => {
         console.error("Failed to load tasks", e);
       }
     }
+
+    const savedSettings = localStorage.getItem('sloth_settings');
+    if (savedSettings) {
+      try {
+        const settings = JSON.parse(savedSettings);
+        setSoundEnabled(settings.soundEnabled ?? true);
+        setNotificationsEnabled(settings.notificationsEnabled ?? false);
+      } catch (e) {}
+    }
   }, []);
 
   // Save to local storage
   useEffect(() => {
     localStorage.setItem('taskflow_data', JSON.stringify(tasks));
+  }, [tasks]);
+
+  useEffect(() => {
+    localStorage.setItem('sloth_settings', JSON.stringify({
+      soundEnabled,
+      notificationsEnabled
+    }));
+  }, [soundEnabled, notificationsEnabled]);
+
+  const uniqueCategories = useMemo(() => {
+    return Array.from(new Set(tasks.map(t => t.category).filter(Boolean))) as string[];
   }, [tasks]);
 
   const addTask = (e?: React.FormEvent, customDate?: Date, titleOverride?: string) => {
@@ -100,12 +127,30 @@ const App: React.FC = () => {
     }));
   };
 
-  const updateTask = (id: string, newTitle: string) => {
+  const updateTask = (id: string, newTitle: string, newDate?: number) => {
     setTasks(prev => prev.map(t => {
       if (t.id === id) {
-        return { ...t, title: newTitle };
+        return { 
+          ...t, 
+          title: newTitle,
+          dueDate: newDate !== undefined ? newDate : t.dueDate
+        };
       }
       return t;
+    }));
+  };
+
+  const snoozeTask = (id: string) => {
+    setTasks(prev => prev.map(t => {
+        if (t.id !== id) return t;
+        const baseDate = t.dueDate ? new Date(t.dueDate) : new Date();
+        const tomorrow = new Date(baseDate);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        tomorrow.setHours(9, 0, 0, 0);
+        return {
+            ...t,
+            dueDate: tomorrow.getTime()
+        };
     }));
   };
 
@@ -176,12 +221,48 @@ const App: React.FC = () => {
     setLoadingAI(null);
   };
 
+  // Settings Handlers
+  const handleToggleNotifications = () => {
+    if (!notificationsEnabled) {
+      if (Notification.permission !== 'granted') {
+        Notification.requestPermission().then(permission => {
+          if (permission === 'granted') {
+            setNotificationsEnabled(true);
+          }
+        });
+      } else {
+        setNotificationsEnabled(true);
+      }
+    } else {
+      setNotificationsEnabled(false);
+    }
+  };
+
+  const handleClearCompleted = () => {
+    setTasks(prev => prev.filter(t => !t.completed));
+  };
+
+  const handleResetAll = () => {
+    setTasks([]);
+  };
+
   const filteredTasks = tasks.filter(task => {
     if (activeView === 'tasks') {
-        if (filter === 'active') return !task.completed;
+        const todayEnd = new Date().setHours(23, 59, 59, 999);
+        
+        if (selectedCategory && task.category !== selectedCategory) {
+            return false;
+        }
+
+        if (filter === 'active') {
+            return !task.completed && (!task.dueDate || task.dueDate <= todayEnd);
+        }
+        if (filter === 'scheduled') {
+            return !task.completed && task.dueDate && task.dueDate > todayEnd;
+        }
         if (filter === 'completed') return task.completed;
     }
-    return true;
+    return true; // 'all'
   });
 
   const sortedTasks = [...filteredTasks].sort((a, b) => {
@@ -213,9 +294,17 @@ const App: React.FC = () => {
               <p className="text-[10px] font-medium text-primary-600 uppercase tracking-widest">No seu ritmo</p>
             </div>
           </div>
-          <div className="hidden md:flex text-sm text-slate-500 items-center gap-2">
-            <Calendar size={16} />
-            {new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}
+          <div className="flex items-center gap-3">
+             <div className="hidden md:flex text-sm text-slate-500 items-center gap-2">
+                <Calendar size={16} />
+                {new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}
+             </div>
+             <button 
+                onClick={() => setIsSettingsOpen(true)}
+                className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors"
+             >
+                <Settings size={20} />
+             </button>
           </div>
         </div>
       </header>
@@ -248,31 +337,63 @@ const App: React.FC = () => {
               </form>
             </div>
 
-            {/* Filters */}
-            <div className="flex items-center justify-between pt-2">
-              <div className="flex items-center gap-1 bg-slate-200/50 p-1 rounded-xl">
-                {(['all', 'active', 'completed'] as FilterType[]).map((f) => (
-                  <button
-                    key={f}
-                    onClick={() => setFilter(f)}
-                    className={`px-3 md:px-4 py-1.5 text-xs md:text-sm font-medium rounded-lg transition-all ${
-                      filter === f 
-                        ? 'bg-white text-primary-600 shadow-sm' 
-                        : 'text-slate-500 hover:text-slate-700'
-                    }`}
-                  >
-                    {f === 'all' && 'Todas'}
-                    {f === 'active' && 'Pendentes'}
-                    {f === 'completed' && 'Feitas'}
-                  </button>
-                ))}
-              </div>
-              
-              <div className="text-xs text-slate-400 flex items-center gap-1">
-                <ListFilter size={14} />
-                <span className="hidden md:inline">{sortedTasks.length} tarefas</span>
-                <span className="md:hidden">{sortedTasks.length}</span>
-              </div>
+            {/* Main Filters */}
+            <div className="space-y-3">
+                <div className="flex items-center justify-between overflow-x-auto">
+                <div className="flex items-center gap-1 bg-slate-200/50 p-1 rounded-xl whitespace-nowrap">
+                    {(['all', 'active', 'scheduled', 'completed'] as FilterType[]).map((f) => (
+                    <button
+                        key={f}
+                        onClick={() => setFilter(f)}
+                        className={`px-3 md:px-4 py-1.5 text-xs md:text-sm font-medium rounded-lg transition-all flex items-center gap-1.5 ${
+                        filter === f 
+                            ? 'bg-white text-primary-600 shadow-sm' 
+                            : 'text-slate-500 hover:text-slate-700'
+                        }`}
+                    >
+                        {f === 'all' && 'Todas'}
+                        {f === 'active' && 'Hoje'}
+                        {f === 'scheduled' && <><CalendarClock size={12} /> Futuro</>}
+                        {f === 'completed' && 'Feitas'}
+                    </button>
+                    ))}
+                </div>
+                
+                <div className="text-xs text-slate-400 flex items-center gap-1 pl-2">
+                    <ListFilter size={14} />
+                    <span className="hidden md:inline">{sortedTasks.length} tarefas</span>
+                    <span className="md:hidden">{sortedTasks.length}</span>
+                </div>
+                </div>
+
+                {/* Category Chips - Only show if we have categories */}
+                {uniqueCategories.length > 0 && (
+                    <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar pl-1">
+                        <button
+                            onClick={() => setSelectedCategory(null)}
+                            className={`px-3 py-1 text-xs rounded-full border transition-colors whitespace-nowrap ${
+                                selectedCategory === null 
+                                ? 'bg-slate-700 text-white border-slate-700 shadow-sm' 
+                                : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
+                            }`}
+                        >
+                            Todas
+                        </button>
+                        {uniqueCategories.map(cat => (
+                            <button
+                                key={cat}
+                                onClick={() => setSelectedCategory(cat === selectedCategory ? null : cat)}
+                                className={`px-3 py-1 text-xs rounded-full border transition-colors whitespace-nowrap flex items-center gap-1 ${
+                                    cat === selectedCategory 
+                                    ? 'bg-primary-100 text-primary-800 border-primary-200 font-medium' 
+                                    : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
+                                }`}
+                            >
+                                {cat}
+                            </button>
+                        ))}
+                    </div>
+                )}
             </div>
 
             {/* Task List */}
@@ -282,8 +403,16 @@ const App: React.FC = () => {
                     <div className="inline-flex items-center justify-center w-16 h-16 bg-primary-50 rounded-full mb-4 text-primary-400">
                       <SlothIcon size={36} />
                     </div>
-                    <h3 className="text-lg font-medium text-slate-900 mb-1">Tudo tranquilo por aqui</h3>
-                    <p className="text-slate-500 max-w-xs mx-auto text-sm">Relaxe! Você não tem tarefas pendentes nesta visualização.</p>
+                    <h3 className="text-lg font-medium text-slate-900 mb-1">
+                        {filter === 'scheduled' ? 'O futuro está livre' : 'Tudo tranquilo por aqui'}
+                    </h3>
+                    <p className="text-slate-500 max-w-xs mx-auto text-sm">
+                        {filter === 'scheduled' 
+                            ? 'Você não tem tarefas agendadas para os próximos dias.'
+                            : selectedCategory 
+                                ? `Nenhuma tarefa em "${selectedCategory}".` 
+                                : 'Relaxe! Você não tem tarefas nesta visualização.'}
+                    </p>
                 </div>
               ) : (
                 sortedTasks.map(task => (
@@ -297,6 +426,7 @@ const App: React.FC = () => {
                     onAddSubtask={addSubtask}
                     onDeleteSubtask={deleteSubtask}
                     onEnhance={handleEnhanceTask}
+                    onSnooze={snoozeTask}
                     isEnhancing={loadingAI === task.id}
                   />
                 ))
@@ -313,10 +443,21 @@ const App: React.FC = () => {
         )}
 
         {activeView === 'focus' && (
-           <FocusTimer />
+           <FocusTimer soundEnabled={soundEnabled} notificationsEnabled={notificationsEnabled} />
         )}
 
       </main>
+
+      <SettingsModal 
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        notificationsEnabled={notificationsEnabled}
+        soundEnabled={soundEnabled}
+        onToggleNotifications={handleToggleNotifications}
+        onToggleSound={() => setSoundEnabled(!soundEnabled)}
+        onClearCompleted={handleClearCompleted}
+        onResetAll={handleResetAll}
+      />
 
       {/* Mobile Bottom Navigation */}
       <nav className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-lg border-t border-slate-200 z-50 md:hidden safe-area-pb">
@@ -348,7 +489,7 @@ const App: React.FC = () => {
              <div className={`p-1 rounded-full ${activeView === 'calendar' ? 'bg-primary-50' : ''}`}>
               <History size={22} strokeWidth={activeView === 'calendar' ? 2.5 : 2} />
              </div>
-            <span className="text-[10px] font-medium">Histórico</span>
+            <span className="text-[10px] font-medium">Calendário</span>
           </button>
         </div>
       </nav>

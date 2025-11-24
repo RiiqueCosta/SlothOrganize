@@ -31,5 +31,5 @@ export interface AIEnhancementResponse {
   category: string;
 }
 
-export type FilterType = 'all' | 'active' | 'completed';
+export type FilterType = 'all' | 'active' | 'completed' | 'scheduled';
 export type ViewType = 'tasks' | 'calendar' | 'focus';
