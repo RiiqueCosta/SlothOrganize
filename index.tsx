@@ -8,8 +8,12 @@ if (!rootElement) {
 }
 
 class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean; error: Error | null }> {
-  // Fix: Initialized state as a class property to fix type errors. This removes the need for a constructor for this purpose.
-  state = { hasError: false, error: null };
+  // FIX: Switched to initializing state in the constructor. This is a more traditional React pattern
+  // and can resolve obscure type-checking issues related to property initialization order, which was likely causing the error on `this.props`.
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
 
   static getDerivedStateFromError(error: Error) {
     return { hasError: true, error };

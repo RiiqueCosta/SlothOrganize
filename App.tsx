@@ -133,7 +133,8 @@ const App: React.FC = () => {
   };
 
   const uniqueCategories = useMemo(() => {
-    return Array.from(new Set(tasks.map(t => t.category).filter(Boolean))) as string[];
+    // FIX: Replaced `.filter(Boolean)` with an explicit type guard to ensure TypeScript correctly infers `uniqueCategories` as `string[]`, resolving the error on `.map()`.
+    return Array.from(new Set(tasks.map(t => t.category).filter((c): c is string => Boolean(c))));
   }, [tasks]);
 
   const addTask = (e?: React.FormEvent, customDate?: Date, titleOverride?: string) => {
@@ -607,7 +608,7 @@ const App: React.FC = () => {
                                 <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider pl-1 mt-4 mb-2 sticky top-[72px] bg-slate-50/95 py-2 z-10 backdrop-blur-sm">
                                     {dateLabel}
                                 </h3>
-                                {(tasks as Task[]).map(task => (
+                                {tasks.map(task => (
                                     <TaskItem
                                         key={task.id}
                                         task={task}
