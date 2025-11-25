@@ -33,8 +33,9 @@ const taskEnhancementSchema: Schema = {
 export const enhanceTaskWithAI = async (taskTitle: string): Promise<AIEnhancementResponse | null> => {
   try {
     // Initialize AI only when needed (Lazy Initialization)
-    // This prevents the app from crashing on load if the API Key is missing or invalid in the environment
-    const apiKey = process.env.API_KEY;
+    // This prevents the app from crashing on load if the API Key is missing or invalid
+    // Accessing process.env safely
+    const apiKey = typeof process !== 'undefined' && process.env ? process.env.API_KEY : undefined;
     
     if (!apiKey) {
       console.warn("API Key is missing. AI features will be disabled.");
