@@ -7,10 +7,10 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react()],
     define: {
-      // Polyfill process.env for compatibility with existing code
-      'process.env': {
-        API_KEY: env.API_KEY
-      }
+      // Substitui 'process.env.API_KEY' pelo valor real da chave
+      'process.env.API_KEY': JSON.stringify(env.API_KEY),
+      // Define 'process.env' como objeto vazio para evitar crash se o código acessar outras propriedades
+      'process.env': {}
     }
   };
 });

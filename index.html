@@ -6,7 +6,12 @@
     <meta name="theme-color" content="#ecfdf5" />
     <title>SlothOrganize</title>
     
-    <!-- Tailwind via CDN for simplicity in this setup -->
+    <!-- Polyfill seguro para process.env no navegador -->
+    <script>
+      window.process = window.process || { env: {} };
+    </script>
+
+    <!-- Tailwind via CDN para simplicidade no estilo -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       tailwind.config = {
@@ -53,7 +58,7 @@
         padding-bottom: env(safe-area-inset-bottom);
       }
     </style>
-  <script type="importmap">
+<script type="importmap">
 {
   "imports": {
     "react": "https://aistudiocdn.com/react@^19.2.0",
@@ -61,15 +66,15 @@
     "react/": "https://aistudiocdn.com/react@^19.2.0/",
     "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0",
     "lucide-react": "https://aistudiocdn.com/lucide-react@^0.554.0",
-    "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.1.1",
-    "vite": "https://aistudiocdn.com/vite@^7.2.4"
+    "vite": "https://aistudiocdn.com/vite@^7.2.4",
+    "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.1.1"
   }
 }
 </script>
 </head>
   <body>
     <div id="root"></div>
-    <!-- Entry point for Vite -->
+    <!-- Entry point para o Vite -->
     <script type="module" src="/index.tsx"></script>
   </body>
 </html>
