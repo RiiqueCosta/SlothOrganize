@@ -46,11 +46,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
     setError('');
     setIsLoading(true);
 
-    // Simula um delay de rede para uma experiência mais realista
-    await new Promise(resolve => setTimeout(resolve, 600));
-
     if (isLogin) {
-      // FIX: The authService.login function is async and needs to be awaited.
       const user = await authService.login(email, password);
       if (user) {
         onLogin(user);
@@ -63,7 +59,6 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
         setIsLoading(false);
         return;
       }
-      // FIX: The authService.register function is async and needs to be awaited.
       const result = await authService.register(name, email, password);
       if ('error' in result) {
         setError(result.error);
@@ -90,7 +85,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
         {/* Formulário */}
         <div className="p-8">
           <h2 className="text-xl font-semibold text-slate-700 mb-6 text-center">
-            {isLogin ? 'Bem-vindo de volta!' : 'Crie sua conta'}
+            {isLogin ? 'Acesse sua conta' : 'Crie sua conta'}
           </h2>
 
           {error && (
