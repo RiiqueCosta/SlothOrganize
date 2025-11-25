@@ -50,7 +50,8 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
     await new Promise(resolve => setTimeout(resolve, 600));
 
     if (isLogin) {
-      const user = authService.login(email, password);
+      // FIX: The authService.login function is async and needs to be awaited.
+      const user = await authService.login(email, password);
       if (user) {
         onLogin(user);
       } else {
@@ -62,7 +63,8 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
         setIsLoading(false);
         return;
       }
-      const result = authService.register(name, email, password);
+      // FIX: The authService.register function is async and needs to be awaited.
+      const result = await authService.register(name, email, password);
       if ('error' in result) {
         setError(result.error);
       } else {

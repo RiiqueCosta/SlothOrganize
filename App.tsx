@@ -42,6 +42,7 @@ const SlothIcon = ({ size = 24, className = "" }: { size?: number, className?: s
 );
 
 const App: React.FC = () => {
+  const [isLoading, setIsLoading] = useState(true); // Controla o carregamento inicial da sessão
   const [user, setUser] = useState<User | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [newTaskTitle, setNewTaskTitle] = useState('');
@@ -64,17 +65,21 @@ const App: React.FC = () => {
 
   // Check for existing session on mount
   useEffect(() => {
-    const currentUser = authService.getCurrentUser();
-    if (currentUser) {
-      setUser(currentUser);
-    }
+    const checkSession = async () => {
+      const currentUser = await authService.getCurrentUser();
+      if (currentUser) {
+        setUser(currentUser);
+      }
+      setIsLoading(false); // Finaliza o carregamento inicial
+    };
+    checkSession();
   }, []);
 
   // Load user-specific data when user changes
   useEffect(() => {
     if (!user) return;
 
-    // Dynamic storage key based on user ID for data isolation
+    // Chave dinâmica baseada no ID do usuário para isolar os dados
     const userStorageKey = `taskflow_data_${user.id}`;
     const saved = localStorage.getItem(userStorageKey);
     
@@ -86,10 +91,10 @@ const App: React.FC = () => {
         setTasks([]);
       }
     } else {
-      setTasks([]); // Clear tasks if new user has no data
+      setTasks([]); // Limpa as tarefas se for um novo usuário sem dados
     }
 
-    // Load user-specific settings
+    // Load user settings
     const userSettingsKey = `sloth_settings_${user.id}`;
     const savedSettings = localStorage.getItem(userSettingsKey);
     if (savedSettings) {
@@ -380,7 +385,17 @@ const App: React.FC = () => {
     return groups;
   }, [sortedTasks, filter]);
 
-  // Main Render Logic: If not logged in, show AuthScreen
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="w-10 h-10 bg-primary-600 rounded-xl flex items-center justify-center text-white animate-pulse">
+           <SlothIcon size={24} />
+        </div>
+      </div>
+    );
+  }
+  
+  // Lógica Principal de Renderização: Se não houver usuário, mostra login
   if (!user) {
     return <AuthScreen onLogin={setUser} />;
   }

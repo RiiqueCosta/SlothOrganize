@@ -3,8 +3,9 @@ import { User } from '../types';
 const USERS_STORAGE_KEY = 'sloth_users_db';
 const SESSION_KEY = 'sloth_current_session';
 
-// Simula um banco de dados de usuários buscando do localStorage
-const getUsersDB = (): any[] => {
+// Simula a busca de dados de um servidor com um pequeno atraso.
+const getUsersDB = async (): Promise<any[]> => {
+  await new Promise(resolve => setTimeout(resolve, 200)); // Simula latência de rede
   try {
     const users = localStorage.getItem(USERS_STORAGE_KEY);
     return users ? JSON.parse(users) : [];
@@ -13,17 +14,16 @@ const getUsersDB = (): any[] => {
   }
 };
 
-// Salva o array de usuários de volta no localStorage
 const saveUsersDB = (users: any[]) => {
   localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(users));
 };
 
 export const authService = {
-  // Tenta fazer login verificando email e senha no "banco"
-  login: (email: string, password: string): User | null => {
-    const users = getUsersDB();
+  // Tenta fazer login, agora de forma assíncrona
+  login: async (email: string, password: string): Promise<User | null> => {
+    const users = await getUsersDB();
     // NOTA: Em um app de produção, senhas NUNCA devem ser comparadas em texto puro.
-    // Usaríamos um backend com hash de senhas (ex: bcrypt).
+    // Isso seria feito em um backend com senhas criptografadas (hash).
     const user = users.find(u => u.email === email && u.password === password);
     
     if (user) {
@@ -34,9 +34,9 @@ export const authService = {
     return null;
   },
 
-  // Registra um novo usuário se o email não existir
-  register: (name: string, email: string, password: string): User | { error: string } => {
-    const users = getUsersDB();
+  // Registra um novo usuário, agora de forma assíncrona
+  register: async (name: string, email: string, password: string): Promise<User | { error: string }> => {
+    const users = await getUsersDB();
     
     if (users.some(u => u.email === email)) {
       return { error: 'Este e-mail já está cadastrado.' };
@@ -62,8 +62,9 @@ export const authService = {
     localStorage.removeItem(SESSION_KEY);
   },
 
-  // Verifica se já existe alguém logado ao abrir o app
-  getCurrentUser: (): User | null => {
+  // Verifica se já existe alguém logado, agora de forma assíncrona
+  getCurrentUser: async (): Promise<User | null> => {
+    await new Promise(resolve => setTimeout(resolve, 100)); // Simula checagem de token
     try {
       const session = localStorage.getItem(SESSION_KEY);
       return session ? JSON.parse(session) : null;

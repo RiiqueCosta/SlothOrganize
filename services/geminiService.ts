@@ -1,9 +1,10 @@
 
-import { GoogleGenAI, Type, Schema } from "@google/genai";
+import { GoogleGenAI, Type } from "@google/genai";
 import { AIEnhancementResponse } from '../types';
 
 // Schema for the structured response we want from Gemini
-const taskEnhancementSchema: Schema = {
+// FIX: Removed Schema type, as it is not exported from @google/genai.
+const taskEnhancementSchema = {
   type: Type.OBJECT,
   properties: {
     description: {
@@ -32,17 +33,8 @@ const taskEnhancementSchema: Schema = {
 
 export const enhanceTaskWithAI = async (taskTitle: string): Promise<AIEnhancementResponse | null> => {
   try {
-    // Initialize AI only when needed (Lazy Initialization)
-    // This prevents the app from crashing on load if the API Key is missing or invalid
-    // Accessing process.env safely
-    const apiKey = typeof process !== 'undefined' && process.env ? process.env.API_KEY : undefined;
-    
-    if (!apiKey) {
-      console.warn("API Key is missing. AI features will be disabled.");
-      return null;
-    }
-
-    const ai = new GoogleGenAI({ apiKey });
+    // FIX: Initialized GoogleGenAI directly with process.env.API_KEY as per the guidelines.
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
