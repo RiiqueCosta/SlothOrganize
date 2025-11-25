@@ -24,6 +24,12 @@ export interface Task {
   category?: string;
 }
 
+export interface User {
+  id: string;
+  email: string;
+  name: string;
+}
+
 export interface AIEnhancementResponse {
   description: string;
   priority: string; // Will map to enum

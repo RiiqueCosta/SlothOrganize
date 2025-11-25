@@ -1,15 +1,15 @@
-
-
 import React, { useState, useEffect, useMemo } from 'react';
-import { Task, Priority, FilterType, ViewType } from './types';
+import { Task, Priority, FilterType, ViewType, User } from './types';
 import { enhanceTaskWithAI } from './services/geminiService';
+import { authService } from './services/authService';
 import { TaskItem } from './components/TaskItem';
 import { StatsCard } from './components/StatsCard';
 import { CalendarView } from './components/CalendarView';
 import { FocusTimer } from './components/FocusTimer';
 import { SettingsModal } from './components/SettingsModal';
+import { AuthScreen } from './components/AuthScreen';
 import { Button } from './components/Button';
-import { Plus, ListFilter, Calendar, LayoutList, History, Timer, CalendarClock, Settings, X, Flag } from 'lucide-react';
+import { Plus, ListFilter, Calendar, LayoutList, History, Timer, CalendarClock, Settings, X, Flag, LogOut } from 'lucide-react';
 
 // Custom Sloth Icon Component
 const SlothIcon = ({ size = 24, className = "" }: { size?: number, className?: string }) => (
@@ -42,9 +42,10 @@ const SlothIcon = ({ size = 24, className = "" }: { size?: number, className?: s
 );
 
 const App: React.FC = () => {
+  const [user, setUser] = useState<User | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [newTaskTitle, setNewTaskTitle] = useState('');
-  const [newTaskDate, setNewTaskDate] = useState(''); // New state for date picker
+  const [newTaskDate, setNewTaskDate] = useState(''); 
   const [newTaskPriority, setNewTaskPriority] = useState<Priority>(Priority.Medium);
   const [filter, setFilter] = useState<FilterType>('active');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -61,18 +62,36 @@ const App: React.FC = () => {
     document.title = "SlothOrganize";
   }, []);
 
-  // Load from local storage
+  // Check for existing session on mount
   useEffect(() => {
-    const saved = localStorage.getItem('taskflow_data');
+    const currentUser = authService.getCurrentUser();
+    if (currentUser) {
+      setUser(currentUser);
+    }
+  }, []);
+
+  // Load user-specific data when user changes
+  useEffect(() => {
+    if (!user) return;
+
+    // Dynamic storage key based on user ID for data isolation
+    const userStorageKey = `taskflow_data_${user.id}`;
+    const saved = localStorage.getItem(userStorageKey);
+    
     if (saved) {
       try {
         setTasks(JSON.parse(saved));
       } catch (e) {
         console.error("Failed to load tasks", e);
+        setTasks([]);
       }
+    } else {
+      setTasks([]); // Clear tasks if new user has no data
     }
 
-    const savedSettings = localStorage.getItem('sloth_settings');
+    // Load user-specific settings
+    const userSettingsKey = `sloth_settings_${user.id}`;
+    const savedSettings = localStorage.getItem(userSettingsKey);
     if (savedSettings) {
       try {
         const settings = JSON.parse(savedSettings);
@@ -80,19 +99,33 @@ const App: React.FC = () => {
         setNotificationsEnabled(settings.notificationsEnabled ?? false);
       } catch (e) {}
     }
-  }, []);
+  }, [user]);
 
-  // Save to local storage
+  // Save tasks to local storage (User specific)
   useEffect(() => {
-    localStorage.setItem('taskflow_data', JSON.stringify(tasks));
-  }, [tasks]);
+    if (!user) return;
+    const userStorageKey = `taskflow_data_${user.id}`;
+    localStorage.setItem(userStorageKey, JSON.stringify(tasks));
+  }, [tasks, user]);
 
+  // Save settings to local storage (User specific)
   useEffect(() => {
-    localStorage.setItem('sloth_settings', JSON.stringify({
+    if (!user) return;
+    const userSettingsKey = `sloth_settings_${user.id}`;
+    localStorage.setItem(userSettingsKey, JSON.stringify({
       soundEnabled,
       notificationsEnabled
     }));
-  }, [soundEnabled, notificationsEnabled]);
+  }, [soundEnabled, notificationsEnabled, user]);
+
+  const handleLogout = () => {
+    if (window.confirm("Deseja realmente sair?")) {
+      authService.logout();
+      setUser(null);
+      setTasks([]); // Clear tasks from memory
+      setActiveView('tasks');
+    }
+  };
 
   const uniqueCategories = useMemo(() => {
     return Array.from(new Set(tasks.map(t => t.category).filter(Boolean))) as string[];
@@ -104,13 +137,11 @@ const App: React.FC = () => {
     const titleToUse = titleOverride || newTaskTitle;
     if (!titleToUse.trim()) return;
 
-    // Determine due date
     let finalDueDate = Date.now();
     
     if (customDate) {
       finalDueDate = customDate.getTime();
     } else if (newTaskDate) {
-       // Parse input date string (YYYY-MM-DD) to local timestamp noon
        const dateParts = newTaskDate.split('-');
        finalDueDate = new Date(
         parseInt(dateParts[0]), 
@@ -134,8 +165,8 @@ const App: React.FC = () => {
     
     if (!titleOverride) {
       setNewTaskTitle('');
-      setNewTaskDate(''); // Reset date picker
-      setNewTaskPriority(Priority.Medium); // Reset priority
+      setNewTaskDate('');
+      setNewTaskPriority(Priority.Medium);
     }
   };
 
@@ -349,6 +380,10 @@ const App: React.FC = () => {
     return groups;
   }, [sortedTasks, filter]);
 
+  // Main Render Logic: If not logged in, show AuthScreen
+  if (!user) {
+    return <AuthScreen onLogin={setUser} />;
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 font-sans pb-24 md:pb-10">
@@ -362,10 +397,12 @@ const App: React.FC = () => {
             </div>
             <div>
               <h1 className="text-xl font-bold tracking-tight text-slate-900 leading-tight">SlothOrganize</h1>
-              <p className="text-[10px] font-medium text-primary-600 uppercase tracking-widest">No seu ritmo</p>
+              <p className="text-[10px] font-medium text-primary-600 uppercase tracking-widest">
+                Olá, {user.name.split(' ')[0]}
+              </p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
              <div className="hidden md:flex text-sm text-slate-500 items-center gap-2">
                 <Calendar size={16} />
                 {new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}
@@ -373,8 +410,16 @@ const App: React.FC = () => {
              <button 
                 onClick={() => setIsSettingsOpen(true)}
                 className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors"
+                title="Configurações"
              >
                 <Settings size={20} />
+             </button>
+             <button 
+                onClick={handleLogout}
+                className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors ml-1"
+                title="Sair"
+             >
+                <LogOut size={20} />
              </button>
           </div>
         </div>
@@ -388,74 +433,76 @@ const App: React.FC = () => {
             <StatsCard tasks={tasks} />
 
             {/* Input Area with Date Picker */}
-            <div className="bg-white p-2 rounded-2xl shadow-lg shadow-primary-500/5 border border-primary-100 relative">
-              <form onSubmit={addTask} className="flex gap-2 relative">
+            <div className="bg-white p-4 rounded-2xl shadow-lg shadow-primary-500/5 border border-primary-100 relative">
+              <form onSubmit={addTask} className="flex flex-col gap-3">
                 <input
                   type="text"
                   value={newTaskTitle}
                   onChange={(e) => setNewTaskTitle(e.target.value)}
                   placeholder="O que vamos fazer (ou não) hoje?"
-                  className="flex-1 pl-4 pr-2 py-3 bg-transparent text-slate-800 placeholder:text-slate-400 outline-none text-base"
+                  className="w-full bg-transparent text-slate-800 placeholder:text-slate-400 outline-none text-lg font-medium"
                 />
                 
-                {/* Date & Priority Controls */}
-                <div className="relative flex items-center gap-1">
-                    {/* Priority Toggle */}
-                    <button
-                        type="button"
-                        onClick={cycleNewTaskPriority}
-                        className="p-2 rounded-lg hover:bg-slate-100 transition-colors"
-                        title={`Prioridade: ${newTaskPriority}`}
-                    >
-                        <Flag size={20} className={priorityFlagColors[newTaskPriority]} />
-                    </button>
-
-                    {/* Date Picker Button */}
-                    <div className="relative">
+                {/* Controls Row */}
+                <div className="flex items-center justify-between border-t border-slate-100 pt-3 mt-1">
+                    <div className="flex items-center gap-2">
+                        {/* Priority Toggle */}
                         <button
                             type="button"
-                            className={`p-2 rounded-lg transition-colors flex items-center gap-1 ${
-                                newTaskDate ? 'bg-indigo-50 text-indigo-600' : 'text-slate-400 hover:bg-slate-100 hover:text-primary-600'
-                            }`}
-                            onClick={() => {
-                                const dateInput = document.getElementById('main-date-input');
-                                if(dateInput) (dateInput as HTMLInputElement).showPicker();
-                            }}
+                            onClick={cycleNewTaskPriority}
+                            className="p-2 rounded-lg hover:bg-slate-50 transition-colors"
+                            title={`Prioridade: ${newTaskPriority}`}
                         >
-                            <CalendarClock size={20} />
-                            {newTaskDate && (
-                                <span className="text-xs font-semibold whitespace-nowrap hidden sm:inline">
-                                    {new Date(newTaskDate).toLocaleDateString('pt-BR', {day: '2-digit', month: '2-digit'})}
-                                </span>
-                            )}
+                            <Flag size={20} className={priorityFlagColors[newTaskPriority]} />
                         </button>
-                        {newTaskDate && (
-                            <button 
-                                type="button"
-                                onClick={() => setNewTaskDate('')}
-                                className="absolute -top-2 -right-2 bg-slate-200 text-slate-500 rounded-full p-0.5 hover:bg-red-100 hover:text-red-500"
-                            >
-                                <X size={12} />
-                            </button>
-                        )}
-                        <input 
-                            id="main-date-input"
-                            type="date"
-                            value={newTaskDate}
-                            onChange={(e) => setNewTaskDate(e.target.value)}
-                            className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
-                        />
-                    </div>
-                </div>
 
-                <Button 
-                  type="submit" 
-                  className="rounded-xl px-4 md:px-6"
-                  disabled={!newTaskTitle.trim()}
-                  icon={<Plus size={20} />}
-                >
-                  <span className="hidden md:inline">Adicionar</span>
-                </Button>
+                        {/* Date Picker Button */}
+                        <div className="relative">
+                            <button
+                                type="button"
+                                className={`p-2 rounded-lg transition-colors flex items-center gap-2 ${
+                                    newTaskDate ? 'bg-indigo-50 text-indigo-600' : 'text-slate-400 hover:bg-slate-50 hover:text-primary-600'
+                                }`}
+                                onClick={() => {
+                                    const dateInput = document.getElementById('main-date-input');
+                                    if(dateInput) (dateInput as HTMLInputElement).showPicker();
+                                }}
+                            >
+                                <CalendarClock size={20} />
+                                {newTaskDate && (
+                                    <span className="text-xs font-semibold whitespace-nowrap hidden sm:inline">
+                                        {new Date(newTaskDate).toLocaleDateString('pt-BR', {day: '2-digit', month: '2-digit'})}
+                                    </span>
+                                )}
+                            </button>
+                            {newTaskDate && (
+                                <button 
+                                    type="button"
+                                    onClick={() => setNewTaskDate('')}
+                                    className="absolute -top-2 -right-2 bg-slate-200 text-slate-500 rounded-full p-0.5 hover:bg-red-100 hover:text-red-500 z-10"
+                                >
+                                    <X size={12} />
+                                </button>
+                            )}
+                            <input 
+                                id="main-date-input"
+                                type="date"
+                                value={newTaskDate}
+                                onChange={(e) => setNewTaskDate(e.target.value)}
+                                className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                            />
+                        </div>
+                    </div>
+
+                    <Button 
+                      type="submit" 
+                      className="rounded-xl px-6"
+                      disabled={!newTaskTitle.trim()}
+                      icon={<Plus size={18} />}
+                    >
+                      Adicionar
+                    </Button>
+                </div>
               </form>
             </div>
 
