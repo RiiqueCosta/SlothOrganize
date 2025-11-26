@@ -3,7 +3,6 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { AIEnhancementResponse } from '../types';
 
 // Schema for the structured response we want from Gemini
-// FIX: Removed Schema type, as it is not exported from @google/genai.
 const taskEnhancementSchema = {
   type: Type.OBJECT,
   properties: {
@@ -33,8 +32,12 @@ const taskEnhancementSchema = {
 
 export const enhanceTaskWithAI = async (taskTitle: string): Promise<AIEnhancementResponse | null> => {
   try {
-    // FIX: Initialized GoogleGenAI directly with process.env.API_KEY as per the guidelines.
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const apiKey = process.env.API_KEY;
+    if (!apiKey) {
+      console.warn("API Key not found. AI features disabled.");
+      return null;
+    }
+    const ai = new GoogleGenAI({ apiKey });
 
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
