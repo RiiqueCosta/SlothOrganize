@@ -18,8 +18,10 @@ export interface Task {
   priority: Priority;
   completed: boolean;
   createdAt: number;
-  completedAt?: number; // Added to track history
+  completedAt?: number; // Track history
   dueDate?: number; // Scheduled date
+  dueTime?: string; // HH:mm
+  duration?: number; // minutes
   subtasks: Subtask[];
   category?: string;
 }
@@ -30,6 +32,15 @@ export interface User {
   name: string;
 }
 
+export interface Transaction {
+  id: string;
+  description: string;
+  amount: number;
+  type: 'income' | 'expense';
+  date: number;
+  category?: string;
+}
+
 export interface AIEnhancementResponse {
   description: string;
   priority: string; // Will map to enum
@@ -38,4 +49,4 @@ export interface AIEnhancementResponse {
 }
 
 export type FilterType = 'all' | 'active' | 'completed' | 'scheduled';
-export type ViewType = 'tasks' | 'calendar' | 'focus';
+export type ViewType = 'tasks' | 'calendar' | 'focus' | 'finance';

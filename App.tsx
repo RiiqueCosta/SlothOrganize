@@ -603,7 +603,7 @@ const App: React.FC = () => {
                 <>
                     {/* Render Grouped Tasks for Scheduled Filter */}
                     {filter === 'scheduled' && groupedScheduledTasks ? (
-                        Object.entries(groupedScheduledTasks).map(([dateLabel, tasks]) => (
+                        Object.entries(groupedScheduledTasks).map(([dateLabel, tasks]: [string, Task[]]) => (
                             <div key={dateLabel} className="space-y-2">
                                 <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider pl-1 mt-4 mb-2 sticky top-[72px] bg-slate-50/95 py-2 z-10 backdrop-blur-sm">
                                     {dateLabel}

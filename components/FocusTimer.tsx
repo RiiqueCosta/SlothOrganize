@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Play, Pause, RotateCcw, Coffee, Brain } from 'lucide-react';
 import { Button } from './Button';
@@ -16,21 +15,18 @@ const SlothFocus = ({ size = 120, isSleeping = false }: { size?: number, isSleep
     strokeLinejoin="round" 
     className={`transition-all duration-1000 ${isSleeping ? 'text-primary-400' : 'text-primary-600'}`}
   >
-    <path d="M2 10h20" className="opacity-50" /> {/* Galho mais baixo para ele deitar */}
-    {/* Corpo deitado */}
+    <path d="M2 10h20" className="opacity-50" /> 
     <path d="M7 10c0-3 2-5 5-5s5 2 5 5" />
     <path d="M7 10v2a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2v-2" />
-    {/* Braços segurando */}
     <path d="M7 10v-2" />
     <path d="M17 10v-2" />
-    {/* Rosto */}
     {isSleeping ? (
        <>
          <path d="M11 8l1 1" />
          <path d="M11 9l1 -1" />
          <path d="M13 8l1 1" />
          <path d="M13 9l1 -1" />
-         <path d="M15 6l2 -2" className="animate-pulse" /> {/* Zzz */}
+         <path d="M15 6l2 -2" className="animate-pulse" />
        </>
     ) : (
        <>
@@ -60,7 +56,6 @@ export const FocusTimer: React.FC<FocusTimerProps> = ({
   const FOCUS_TIME = 25 * 60;
   const BREAK_TIME = 5 * 60;
 
-  // Sound generator (Soft chime)
   const playSound = () => {
     if (!soundEnabled) return;
 
@@ -75,13 +70,10 @@ export const FocusTimer: React.FC<FocusTimerProps> = ({
       osc.connect(gain);
       gain.connect(ctx.destination);
 
-      // Gentle sine wave
       osc.type = 'sine';
-      // Frequency sweep for a "ding" sound
       osc.frequency.setValueAtTime(500, ctx.currentTime);
       osc.frequency.exponentialRampToValueAtTime(1000, ctx.currentTime + 0.1);
       
-      // Envelope
       gain.gain.setValueAtTime(0, ctx.currentTime);
       gain.gain.linearRampToValueAtTime(0.3, ctx.currentTime + 0.05);
       gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 1.5);
@@ -97,7 +89,7 @@ export const FocusTimer: React.FC<FocusTimerProps> = ({
     if (!notificationsEnabled) return;
     
     if (Notification.permission === 'granted') {
-      new Notification(title, { body, icon: '/favicon.ico' }); // Browser default icon usually works
+      new Notification(title, { body });
     }
   };
 
@@ -110,11 +102,11 @@ export const FocusTimer: React.FC<FocusTimerProps> = ({
       setIsActive(false);
       playSound();
       if (mode === 'focus') {
-        sendNotification("Foco concluído!", "Hora de fazer uma pausa e esticar o corpo.");
+        sendNotification("Foco concluído!", "Hora de fazer uma pausa.");
         setMode('break');
         setTimeLeft(BREAK_TIME);
       } else {
-        sendNotification("Pausa concluída!", "Hora de voltar ao ritmo, sem pressa.");
+        sendNotification("Pausa concluída!", "Hora de voltar ao ritmo.");
         setMode('focus');
         setTimeLeft(FOCUS_TIME);
       }
@@ -128,7 +120,6 @@ export const FocusTimer: React.FC<FocusTimerProps> = ({
   }, [isActive, timeLeft, mode, soundEnabled, notificationsEnabled]);
 
   const toggleTimer = () => {
-    // Initialize audio context on user interaction if needed
     if (!audioContextRef.current && soundEnabled) {
        audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
     }
@@ -159,7 +150,6 @@ export const FocusTimer: React.FC<FocusTimerProps> = ({
   return (
     <div className="flex flex-col items-center justify-center space-y-8 animate-in fade-in duration-500 py-6">
       
-      {/* Mode Selector */}
       <div className="bg-slate-100 p-1 rounded-xl flex">
         <button
           onClick={() => switchMode('focus')}
@@ -183,9 +173,7 @@ export const FocusTimer: React.FC<FocusTimerProps> = ({
         </button>
       </div>
 
-      {/* Timer Circle */}
       <div className="relative w-64 h-64 flex items-center justify-center">
-        {/* Background Circle */}
         <svg className="absolute w-full h-full transform -rotate-90">
           <circle
             cx="128"
@@ -224,7 +212,6 @@ export const FocusTimer: React.FC<FocusTimerProps> = ({
         </div>
       </div>
 
-      {/* Controls */}
       <div className="flex gap-4">
         <Button 
           onClick={toggleTimer} 
@@ -243,15 +230,6 @@ export const FocusTimer: React.FC<FocusTimerProps> = ({
           <RotateCcw size={24} />
         </Button>
       </div>
-
-      <div className="text-center max-w-xs mx-auto">
-        <p className="text-xs text-slate-400">
-           {mode === 'focus' 
-             ? "O segredo não é correr, é não parar. Respire fundo e faça uma coisa de cada vez."
-             : "Hora de relaxar. Estique os braços, olhe pela janela e seja um pouco preguiça."}
-        </p>
-      </div>
-
     </div>
   );
 };
