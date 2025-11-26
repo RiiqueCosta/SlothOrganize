@@ -16,7 +16,7 @@ interface ErrorBoundaryState {
   error: Error | null;
 }
 
-// FIX: Refactored ErrorBoundary to use a class property for state initialization instead of a constructor. This is a more modern approach and resolves the obscure type errors where 'state' and 'props' were not being found on the component instance.
+// FIX: Switched to class property for state initialization, which is a more modern and concise syntax for React class components. This resolves type errors related to 'this.state' and 'this.props' not being found.
 class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
   state: ErrorBoundaryState = { hasError: false, error: null };
 

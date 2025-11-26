@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Transaction } from '../types';
 import { Button } from './Button';
-import { Plus, Minus, TrendingUp, TrendingDown, Wallet, Trash2 } from 'lucide-react';
+import { Plus, Minus, TrendingUp, TrendingDown, Wallet, Trash2, Download } from 'lucide-react';
 
 interface FinanceViewProps {
   transactions: Transaction[];
@@ -44,6 +44,37 @@ export const FinanceView: React.FC<FinanceViewProps> = ({ transactions, onAddTra
   const radius = 40;
   const circumference = 2 * Math.PI * radius;
   const expenseDash = (expensePercentage / 100) * circumference;
+
+  const handleDownload = () => {
+    if (transactions.length === 0) return;
+
+    const headers = ['Data', 'Descrição', 'Tipo', 'Valor (R$)'];
+    let csvContent = headers.join(',') + '\n';
+
+    const sortedTransactions = [...transactions].sort((a, b) => a.date - b.date);
+
+    sortedTransactions.forEach(t => {
+      const date = new Date(t.date).toLocaleDateString('pt-BR');
+      const description = `"${t.description.replace(/"/g, '""')}"`; // Handle quotes
+      const type = t.type === 'income' ? 'Entrada' : 'Saída';
+      const amount = t.amount.toFixed(2).replace('.', ',');
+
+      const row = [date, description, type, amount].join(',');
+      csvContent += row + '\n';
+    });
+
+    const blob = new Blob([`\uFEFF${csvContent}`], { type: 'text/csv;charset=utf-8;' }); // \uFEFF for Excel compatibility
+    const link = document.createElement('a');
+    if (link.download !== undefined) {
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', 'relatorio_financeiro_sloth_organize.csv');
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  };
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-20">
@@ -140,7 +171,19 @@ export const FinanceView: React.FC<FinanceViewProps> = ({ transactions, onAddTra
 
       {/* History List */}
       <div className="space-y-3">
-        <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider px-1">Histórico Recente</h3>
+        <div className="flex justify-between items-center">
+          <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider px-1">Histórico Recente</h3>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={handleDownload} 
+            disabled={transactions.length === 0}
+            icon={<Download size={14} />}
+            className="text-primary-600 hover:bg-primary-50"
+          >
+            Baixar Relatório
+          </Button>
+        </div>
         {transactions.length === 0 ? (
           <p className="text-center text-slate-400 text-sm py-4">Nenhuma movimentação ainda.</p>
         ) : (
